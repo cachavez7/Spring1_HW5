@@ -1,6 +1,8 @@
-
+install.packages(c("sjPlot","sjmisc"))
 library(dplyr)
 library(ggplot2)
+library(sjPlot)
+library(sjmisc)
 
 survey_data = read.csv("/Users/chenhuizhang/Desktop/Spring 1/DOE/HW/orange team 5.csv")
 
@@ -60,13 +62,31 @@ ggplot(survey_data,aes(x=ages)) +
 
 
 # rich people with income >150k are least likely to go, middle class from 25k-150k like it more
-inc_table = table(survey_data$Location,survey_data$income)
-prop.table(inc_table,2)
-
+inc_table = table(survey_data$income)
+prop.table(inc_table)
 
 #### build a logistic regression
-glm.fit <- glm(will_attend ~ target_dist + factor(Location) + factor(Experience) + factor(Other) + factor(Price) + sex + ages + income, data = survey_data, family = binomial)
+
+# factoring continuous variables
+survey_data$Price_real = ifelse(survey_data$Price==1,15,ifelse(survey_data$Price==2,20,ifelse(survey_data$Price==3,25,30)))
+survey_data$factor_location = factor(survey_data$Location)
+survey_data$factor_experience = factor(survey_data$Experience)
+survey_data$factor_other = factor(survey_data$Other)
+survey_data$attendence <- relevel(factor(survey_data$will_attend), ref = "0")
+
+
+glm.fit <- glm(attendence ~ target_dist + factor_location+experience + factor_other + Price_real+income + sex + ages , data = survey_data, family = binomial)
+
 summary(glm.fit)
+
+# calculate odds ratios
+OR = exp(coef(glm.fit))
+
+# predicted probabilities
+glm.probs <- predict(glm.fit,type = "response")
+glm.probs[1:5]
+length(glm.probs)
+survey_data$predicted_prob = glm.probs
 
 # model findings:
 # distance to location is significant -> the far from the park the less likely people are to to go
@@ -79,3 +99,21 @@ summary(glm.fit)
 # income groups 25-50k and 74-100k are most certain to go
 # gender makes no differences
 
+# interaction plots: glm.fit has to be updated to add the interaction term into it
+exp_plot = plot_model(glm.fit,type = "int",title = "Predicted Probabilities of Attendence"
+          ,axis.title = c("Price Level (dollar)","Attendence (%)")
+          ,legend.title = c("Experience Type")) #axis.lim=c(0,0.01)
+
+other_plot = plot_model(glm.fit,type = "int",title = "Predicted Probabilities of Attendence"
+                      ,axis.title = c("Price Level (dollar)","Attendence (%)")
+                      ,legend.title = c("Other Attraction Type")) 
+income_plot = plot_model(glm.fit,type = "int",title = "Predicted Probabilities of Attendence"
+                        ,axis.title = c("Price Level (dollar)","Attendence (%)")
+                        ,legend.title = c("Income Groups")) 
+
+loc_plot = plot_model(glm.fit,type = "int",title = "Predicted Probabilities of Attendence"
+                         ,axis.title = c("Location","Attendence (%)")
+                         ,legend.title = c("Experience Type"),ci.lvl = NA) 
+
+
+write.csv(survey_data,'/Users/chenhuizhang/Desktop/Spring 1/DOE/HW/survey_data_with_new_var.csv')
