@@ -121,21 +121,59 @@ glm.fit3 <- glm(attendence ~
                   factor_experience + factor_other + Price_real + 
                   income  + sex + ages + factor_location*factor_experience, 
                 data = survey_data, family = binomial)
-
 summary(glm.fit3)
 
 # calculate odds ratios
 OR = exp(coef(glm.fit))
 
-# predicted probabilities
+# predicted probabilities using model #1
 glm.probs <- predict(glm.fit,type = "response")
 glm.probs[1:5]
 length(glm.probs)
 survey_data$predicted_prob = glm.probs
 
-mean(glm.probs) # To determine an approximate probability of expected attendance.
+mean(glm.probs) # in a randomized set-up, we get 9% attendance...?
 
-# model findings:
+
+#### predicted probabilities of sample under chosen attraction design ####
+# Apex/Loc2, $25, Other=4 and Experience 2
+# TODO Could improve this to a simulation
+
+# duplicating dataset, then changing all 'designed' inputs of model
+design_data <- survey_data
+design_data$Location <- 2
+design_data$factor_location <- "2"
+design_data$factor_experience <- "2"
+design_data$Price_real <- 25
+design_data$other <- "4"
+
+# recalculating distances to location... All should logic into Loc2 
+design_data = design_data %>%
+  mutate(target_dist = if_else(
+    Location==1,sqrt((-78.878130-LONG)^2+(35.89314-LAT)^2),
+    if_else(Location==2,sqrt((-78.875880-LONG)^2+(35.74628-LAT)^2),
+            if_else(Location==3,sqrt((-78.676540-LONG)^2+(35.7724-LAT)^2),
+                    if_else(Location==4,sqrt((-79.054280-LONG)^2+(35.90535-LAT)^2),
+                            sqrt((-78.575981-LONG)^2+(35.86696-LAT)^2)
+                    )
+            ))
+  ))
+
+#checking changes 
+summary(design_data$Location)
+dist_chng <- survey_data$target_dist - design_data$target_dist
+summary(dist_chng)
+
+# getting predictions
+new.probs <- predict(glm.fit, newdata = design_data,type = "response")
+design_data$predicted_prob = new.probs
+
+# To determine an approximate probability of expected attendance.
+mean(new.probs)
+mean(new.probs)*mean(design_data$Price_real) #expected avg revenue per capita
+
+
+##### model findings: ####
 # distance to location is significant -> the far from the park the less likely people are to to go
 # only location 2 has a positive coefficient
 # experience 2 and 3 are almost equally strongly positive
@@ -146,7 +184,8 @@ mean(glm.probs) # To determine an approximate probability of expected attendance
 # income groups 25-50k and 74-100k are more likely to go
 # gender makes no significant differences
 
-# interaction plots: glm.fit3 has to be updated to add the interaction term into it
+#### Interaction Plots ####
+# glm.fit3 has to be updated to add the interaction term into it
 loc_plot = plot_model(glm.fit3,type = "int",title = "Predicted Probabilities of Attendence"
                       ,axis.title = c("Location","Attendence (%)")
                       ,legend.title = c("Experience Type"),ci.lvl = NA) 
@@ -165,5 +204,8 @@ income_plot = plot_model(glm.fit3,type = "int",title = "Predicted Probabilities 
                         ,legend.title = c("Income Groups")) 
 
 
-
-write.csv(survey_data,'/Users/chenhuizhang/Desktop/Spring 1/DOE/HW/survey_data_with_new_var.csv')
+#### Output of final datasets ####
+path <- '/Users/chenhuizhang/Desktop/Spring 1/DOE/HW/'
+path <- 'C:/Users/Steven/Documents/MSA/Applications and Methods/DOE/exercises/HW2/'
+write.csv(survey_data,paste(path,'final_survey.csv',sep=''))
+write.csv(design_data,paste(path,'final_design.csv',sep=''))
