@@ -86,3 +86,38 @@ final_g <- round(port_weights_g*100,2)
 
 # optimized portfolio:
 # wmt_r: 30.86 jnj_r: 22.17  pg_r: 20.10 ibm_r: 6.37 nke_r: 19.54
+
+# efficient frontier
+
+min_risk = vector()
+max_return = seq(0.00001,0.0009,0.00001)
+i=1
+for (min_r in max_return){
+  ui <- rbind(c(1,0,0,0,0),
+              c(0,1,0,0,0),
+              c(0,0,1,0,0),
+              c(0,0,0,1,0),
+              c(0,0,0,0,1),
+              c(-1,-1,-1,-1,-1),
+              c(1,1,1,1,1),
+              c(means_h))
+  theta <- c(0.01,0.01,0.01,0.01,0.955)
+  #theta <- c(0.0,0.0,0.0,0.0,1)
+  ci_iter <- c(0,
+          0,
+          0,
+          0,
+          0,
+          -1,
+          0.99,
+          min_r) # 5.04% Annual Return Spread to Daily #
+  print(min_r)
+  port_opt_iter <- constrOptim(theta = theta, f = f, ui = ui, ci = ci_iter, grad = NULL)
+  min_risk[i] = port_opt_iter$value
+  i=i+1
+}
+
+
+eff_frontier = cbind(min_risk,max_return)
+plot(eff_frontier)
+# it seems some dots fall below the frontier into the suboptimal area. I'm not sure why.
